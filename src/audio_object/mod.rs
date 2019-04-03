@@ -2,6 +2,7 @@ use coreaudio_sys::{
     kAudioObjectSystemObject, kAudioObjectUnknown, AudioBuffer, AudioBufferList, AudioObjectID,
     AudioStreamID, OSStatus,
 };
+use std::cmp::Ordering;
 use std::mem;
 use std::slice;
 
@@ -50,6 +51,12 @@ impl AudioSystemObject {
         let devices = self.get_property_data_array(&address)?;
         Ok(devices)
     }
+
+    pub fn get_devices(&self, scope: Scope) -> Result<Vec<AudioObject>, OSStatus> {
+        let mut devices = self.get_all_devices()?;
+        devices.retain(|device| device.in_scope(scope.clone()).unwrap_or(false));
+        Ok(devices)
+    }
 }
 
 impl Default for AudioSystemObject {
@@ -70,7 +77,7 @@ impl GetPropertyDataArray for AudioSystemObject {}
 
 // AudioObject
 // ------------------------------------------------------------------------------------------------
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct AudioObject(AudioObjectID);
 impl AudioObject {
     pub fn new(id: AudioObjectID) -> Self {
@@ -118,6 +125,18 @@ impl AudioObject {
 impl Default for AudioObject {
     fn default() -> Self {
         Self::new(kAudioObjectUnknown)
+    }
+}
+
+impl Ord for AudioObject {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl PartialOrd for AudioObject {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
